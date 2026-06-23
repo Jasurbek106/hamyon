@@ -1,0 +1,47 @@
+# Getting Hamyon's chatbot working on Vercel
+
+Hamyon's chat needs a real API key to talk to Claude. That key must never live in the
+HTML/JS file itself (anyone could view-source and steal it). Instead, it lives as a
+secret on Vercel's servers, and a small serverless function relays requests for you.
+
+## Files involved
+- `hamyon.html` — the site itself. Calls `/api/chat` instead of Anthropic directly.
+- `api/chat.js` — the serverless function. Holds the API key, forwards requests to Anthropic.
+  (Vercel auto-detects any file inside `/api` as a function — no extra config needed.)
+
+## Steps
+
+1. **Get an Anthropic API key**, if you don't have one: https://console.anthropic.com → API Keys.
+   (This is different from your claude.ai login — it's a developer key, and using it
+   will incur small per-message costs once Hamyon is live and people are chatting with it.)
+
+2. **Deploy this folder to Vercel.** Easiest paths:
+   - Push the folder (with `hamyon.html` and the `api/` directory) to a GitHub repo,
+     then go to vercel.com → Add New Project → Import that repo.
+   - Or install the Vercel CLI (`npm i -g vercel`) and run `vercel` from inside the folder.
+
+3. **Add the environment variable.** In the Vercel dashboard for this project:
+   Settings → Environment Variables → Add New
+   - Key: `ANTHROPIC_API_KEY`
+   - Value: your real key (starts with `sk-ant-...`)
+   - Apply to: Production (tick Preview too if you want PR previews to work)
+
+4. **Redeploy** if you added the env var after the first deploy — Vercel needs a fresh
+   build to pick it up (Deployments → ⋯ → Redeploy).
+
+5. **Test it.** Open your live Vercel URL, open Hamyon, send a message. If something's
+   wrong, check the function logs: Project → Deployments → (latest) → Functions → chat.
+
+## Common issues
+- **"ANTHROPIC_API_KEY is not set"** → you skipped step 3, or forgot to redeploy after adding it.
+- **401 from Anthropic** → the key is wrong or has been revoked. Generate a new one.
+- **404 on /api/chat** → the function didn't deploy. Confirm `api/chat.js` is at the
+  project root (a sibling of `hamyon.html`), not nested inside another folder.
+- **Works on the Vercel preview URL but not your custom domain** → make sure the env
+  variable is applied to the right environment (Production vs Preview).
+
+## Cost note
+Each message Hamyon sends to Claude costs a small amount on your Anthropic account
+(fractions of a cent per message with Sonnet). For a portfolio demo this is usually
+trivial, but if you ever share the link publicly and worry about cost, consider adding
+a basic rate limit inside `api/chat.js` (e.g. capping requests per IP) before that happens.
